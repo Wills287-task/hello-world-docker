@@ -1,0 +1,13 @@
+version: 2.1
+
+jobs:
+  build:
+    machine: true
+    steps:
+      - checkout
+      - run:
+          name: Build and push Docker image
+          command: |
+            docker build -t $DOCKER_USERNAME/$APPLICATION_NAME:$CIRCLE_BUILD_NUM .
+            echo $DOCKER_PASSWORD | docker login -u $DOCKER_USERNAME --password-stdin
+            docker push $DOCKER_USERNAME/$APPLICATION_NAME:$CIRCLE_BUILD_NUM
