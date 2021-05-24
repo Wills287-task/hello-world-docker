@@ -1,6 +1,7 @@
 version: 2.1
 
 orbs:
+  aws-cli: circleci/aws-cli@2.0
   aws-ecs: circleci/aws-ecs@2.2.1
 
 jobs:
@@ -15,13 +16,27 @@ jobs:
             echo ${DOCKER_PASSWORD} | docker login -u ${DOCKER_USERNAME} --password-stdin
             docker push ${DOCKER_USERNAME}/${APPLICATION_NAME}:${CIRCLE_SHA1}
 
+  stop-task:
+    executor: aws-cli/default
+    steps:
+      - aws-cli/setup:
+          profile-name: default
+      - run:
+          name: Stop existing task before deployment
+          command: |
+            TASK_ARN=$(aws ecs list-tasks --cluster dev-hello-world --family dev-hello-world --output text --query 'taskArns')
+            aws ecs stop-task --cluster ${ECS_CLUSTER_NAME} --task ${TASK_ARN}
+
 workflows:
   build-and-deploy:
     jobs:
       - build
+      - stop-task:
+          requires:
+            - build
       - aws-ecs/deploy-service-update:
           cluster-name: '${ECS_CLUSTER_NAME}'
           container-image-name-updates: 'container=${ECS_SERVICE_NAME},tag=${CIRCLE_SHA1}'
           family: '${ECS_SERVICE_NAME}'
           requires:
-            - build
+            - stop-task
