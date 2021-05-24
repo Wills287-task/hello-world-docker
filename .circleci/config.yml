@@ -1,5 +1,8 @@
 version: 2.1
 
+orbs:
+  aws-ecs: circleci/aws-ecs@2.2.1
+
 jobs:
   build:
     machine: true
@@ -8,6 +11,17 @@ jobs:
       - run:
           name: Build and push Docker image
           command: |
-            docker build -t $DOCKER_USERNAME/$APPLICATION_NAME:$CIRCLE_BUILD_NUM .
-            echo $DOCKER_PASSWORD | docker login -u $DOCKER_USERNAME --password-stdin
-            docker push $DOCKER_USERNAME/$APPLICATION_NAME:$CIRCLE_BUILD_NUM
+            docker build -t ${DOCKER_USERNAME}/${APPLICATION_NAME}:${CIRCLE_SHA1} .
+            echo ${DOCKER_PASSWORD} | docker login -u ${DOCKER_USERNAME} --password-stdin
+            docker push ${DOCKER_USERNAME}/${APPLICATION_NAME}:${CIRCLE_SHA1}
+
+workflows:
+  build-and-deploy:
+    jobs:
+      - build
+      - aws-ecs/deploy-service-update:
+          cluster-name: '${ECS_CLUSTER_NAME}'
+          container-image-name-updates: 'container=${ECS_SERVICE_NAME},tag=${CIRCLE_SHA1}'
+          family: '${ECS_SERVICE_NAME}'
+          requires:
+            - build
